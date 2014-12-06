@@ -20,7 +20,7 @@
     USA
 
 
-[link](http://www.softsprocket.com/)SoftSprocket
+[SoftSprocket](http://www.softsprocket.com/)
 
 Pre-release
 -----------
