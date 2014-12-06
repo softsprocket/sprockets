@@ -1,0 +1,37 @@
+
+{
+
+	Sequence servers = {
+		{
+			Map config = {
+				host: "localhost",
+				port: 8003,
+				proto: "tcp"
+			}
+
+			String shared_object = "./tests/server0.so" 
+			String id = "sprocket_server_0"
+		},
+		{
+			Map config = {
+				host: "localhost",
+				port: 8004,
+				proto: "tcp"
+			}
+
+			String shared_object = "./tests/server1.so" 
+			String id = "sprocket_server_1"
+		},
+		{
+			Map config = {
+				host: "localhost",
+				port: 8005,
+				proto: "tcp"
+			}
+
+			String shared_object = "./tests/server2.so" 
+			String id = "sprocket_server_2"
+		}
+	}	
+}
+

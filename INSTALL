@@ -1,0 +1,54 @@
+
+Installation of the library is accomplished by running the commands:
+
+make 
+sudo make install
+
+You can set CFLAGS at the commandline. Default is '-g -O0 -Wall'. For optimized code without
+debugging symbols try:
+
+make CFLAGS='-O2 -Wall'
+sudo make install
+ 
+Uninstallation is accomplished:
+
+sudo make uninstall
+
+The install and uninstall target supports the prefix variable and the default is equal to:
+
+sudo make prefix=/usr install
+
+
+Documentation is both man and html. To build the html docs run
+
+make docs
+
+To build the html and install html and man docs:
+
+sudo make install-docs
+
+To uninstall docs:
+
+sudo make uninstall-docs
+
+There are two clean targets:
+
+make clean
+make clean-docs
+
+
+There are two test targets:
+
+make check
+make memtest
+
+The first runs unit tests and the second runs valgrind on the unit tests.
+
+There are two targets to support distribution:
+
+make distcheck
+make dist
+
+The variable DESTDIR is supported for these targets.
+
+
