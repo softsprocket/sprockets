@@ -1,21 +1,25 @@
-
+LDFLAGS = -L../lib
 additional_flags = -std=c11 -I../include
 additional_lib_flags = -fPIC
 
 LIBS = -ldl -lsscont -lserc
 
-all: $(package) lib$(package).$(version).so
+all: $(package) lib$(package).$(version).so $(watchdog)
 
 libobjects = sprocket_bus.o
 
-objects = main.o
+objects = main.o spike.o sprocket_bus.o
 
 main.o: main.c
-	 $(CC) -c main.c $(CFLAGS) $(additional_flags) -o $@ 
+	 $(CC) -c main.c -D_POSIX_C_SOURCE $(CFLAGS) $(additional_flags) -o $@ 
 
-$(package): $(objects)
+spike.o: spike.c 
+	 $(CC) -c spike.c $(CFLAGS) $(additional_flags) -o $@ 
+
+$(package): $(objects) lib$(package).$(version).so
 	-mkdir -p ../bin
-	$(CC) $(CFLAGS) $(additional_flags) -o ../bin/$@ $(objects) $(LIBS)
+	$(CC) $(CFLAGS) $(additional_flags) -o ../bin/$@ $(objects)  $(LIBS)
+
 
 lib$(package).$(version).so: $(libobjects)
 	-mkdir -p ../lib
@@ -27,6 +31,7 @@ sprocket_bus.o: sprocket_bus.c
 clean:
 	-rm *.o
 	-rm ../bin/$(package)
+	-rm ../lib/lib$(package).$(version).so
 
 install:
 	install -d  $(DESTDIR)$(prefix)/bin

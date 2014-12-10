@@ -5,8 +5,7 @@
 		{
 			Map config = {
 				host: "localhost",
-				port: 8003,
-				proto: "tcp"
+				port: 10000
 			}
 
 			String shared_object = "./tests/server0.so" 
@@ -15,8 +14,7 @@
 		{
 			Map config = {
 				host: "localhost",
-				port: 8004,
-				proto: "tcp"
+				port: 10001
 			}
 
 			String shared_object = "./tests/server1.so" 
@@ -25,8 +23,7 @@
 		{
 			Map config = {
 				host: "localhost",
-				port: 8005,
-				proto: "tcp"
+				port: 10002
 			}
 
 			String shared_object = "./tests/server2.so" 

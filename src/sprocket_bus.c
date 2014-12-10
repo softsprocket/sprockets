@@ -22,6 +22,7 @@
 *    USA
 */
 
+#include <softsprocket/debug_utils.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <sys/types.h>
@@ -33,6 +34,8 @@
 #include <sys/epoll.h>
 #include <syslog.h>
 #include <errno.h>
+#include <signal.h>
+#include <sys/signalfd.h>
 
 #include "sprocket.h"
 
@@ -181,5 +184,29 @@ int add_fd_to_epoll (int epfd, int fd) {
 	}
 
 	return epfd;
+}
+
+int setup_sighandlers (int sigs[], int num_sigs) {
+	sigset_t mask;
+
+	sigemptyset(&mask);
+
+	for (int i = 0; i < num_sigs; ++i) {
+		sigaddset(&mask, sigs[i]);
+	}
+
+	if (sigprocmask(SIG_BLOCK, &mask, NULL) == -1) {
+		PERR ("sigprocmask");
+		return 0;	
+	}
+
+	int sfd = signalfd(-1, &mask, 0);
+
+	if (sfd == -1) {
+		PERR ("signalfd");
+		return 0;
+	}
+
+	return sfd;
 }
 

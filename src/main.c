@@ -22,7 +22,6 @@
 *    USA
 */
 
-#include <sys/socket.h>
 #include <softsprocket/debug_utils.h>
 #include <softsprocket/container.h>
 #include <softsprocket/serc.h>
@@ -33,19 +32,44 @@
 #include <syslog.h>
 #include <dlfcn.h>
 #include <string.h>
+#include <getopt.h>
 
 #include "sprocket.h"
+#include "spike.h"
 
-int start_servers (hash_table* document);
+int* start_servers (hash_table* document, int* num_servers);
 int fork_sprocket (hash_table* server);
 
+void usage (char* ex) {
+	fprintf (stderr, "usage:%s [-w -e <email_address>] serc_filename", ex);
+	exit (EXIT_FAILURE);
+}
+
 int main (int argc, char* argv[]) {
-	if (argc < 2) { 
-		fprintf (stderr, "usage:%s serc_filename", argv[0]);
-		exit (EXIT_FAILURE);
+	int watchdog = 0;
+	char* email_address = NULL;
+	int opt =0;
+	while ((opt = getopt (argc, argv, "hwe:")) != -1) {
+		switch (opt) {
+			case 'h':
+				usage (argv[0]);
+			case 'w':
+				watchdog = 1;
+				break;
+			case 'e':
+				email_address = optarg;
+				break;
+			default:
+				fprintf (stderr, "Unknown option '%d'\n", opt);
+				break;
+		}
 	}
 
-	char* fname = argv[1];
+	if (optind >= argc) {
+		usage (argv[0]);
+	}
+
+	char* fname = argv[optind];
 
 	size_t buffer_size = 0;
 	char* read_buf = serc_read_file (fname, &buffer_size);
@@ -64,32 +88,47 @@ int main (int argc, char* argv[]) {
 
 	free (read_buf);
 
-	if (start_servers (document) == 0) {
+	int* pids = NULL;
+	int num_servers = 0;
+	if ((pids = start_servers (document, &num_servers)) == NULL) {
 		PMSG ("start_servers failed");
 		delete_document (document);
 		exit (EXIT_FAILURE);
 	}
 
+	if (watchdog) {
+		run_watchdog (pids, num_servers, email_address);
+	}
+
+	free (pids);
 	delete_document (document);
 
 	return EXIT_SUCCESS;
 }
 
-int start_servers (hash_table* document) {
+int* start_servers (hash_table* document, int* num_servers) {
 	storage_unit* su = hash_table_get (document, "servers");
 	if (su == NULL) {
 		PMSG ("unable to retrieve \"servers\" config element");
-		return 0;
+		return NULL;
 	}
 
 	auto_array* servers = SU_TUPLE_TO_ARRAY (su);
-
-	for (int i = 0; i < servers->count; ++i) {
-		hash_table* server = auto_array_get (servers, i);
-		fork_sprocket (server);
+	*num_servers = servers->count;
+	int* pids = malloc (sizeof *pids * *num_servers);
+	if (pids == NULL) {
+		PERR ("malloc");
+		return NULL;
 	}
 
-	return 1;
+	for (int i = 0; i < *num_servers; ++i) {
+		hash_table* server = auto_array_get (servers, i);
+		int pid = fork_sprocket (server);
+		pids[i] = pid;
+	}
+
+
+	return pids;
 }
 
 int fork_sprocket (hash_table* server) {
@@ -193,6 +232,7 @@ int fork_sprocket (hash_table* server) {
 			printf ("%s started successfully on %d\n", id, pid);
 		} else {
 			printf ("%s start failed\n", id);
+			pid = 0;
 		}
 		close (fd[0]);
 	}
