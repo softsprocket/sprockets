@@ -1,20 +1,20 @@
 LDFLAGS = -L../lib
-additional_flags = -std=c11 -I../include
+additional_flags = -std=c11 -I../include -pthread
 additional_lib_flags = -fPIC
 
-LIBS = -ldl -lsscont -lserc
+LIBS = -ldl -lsscont -lserc 
 
 all: $(package) lib$(package).$(version).so $(watchdog)
 
-libobjects = sprocket_bus.o
+libobjects = sprocket.o
 
-objects = main.o spike.o sprocket_bus.o
+objects = main.o spike.o sprocket.o
 
 main.o: main.c
 	 $(CC) -c main.c -D_POSIX_C_SOURCE $(CFLAGS) $(additional_flags) -o $@ 
 
 spike.o: spike.c 
-	 $(CC) -c spike.c $(CFLAGS) $(additional_flags) -o $@ 
+	 $(CC) -c spike.c -D_POSIX_C_SOURCE $(CFLAGS) $(additional_flags) -o $@ 
 
 $(package): $(objects) lib$(package).$(version).so
 	-mkdir -p ../bin
@@ -25,8 +25,8 @@ lib$(package).$(version).so: $(libobjects)
 	-mkdir -p ../lib
 	$(CC) $(CFLAGS) $(additional_flags) -shared -o ../lib/$@ $(libobjects) $(LIBS)
 
-sprocket_bus.o: sprocket_bus.c
-	 $(CC) -c -D_POSIX_C_SOURCE sprocket_bus.c $(CFLAGS) $(additional_flags) $(additional_lib_flags) -o $@ 
+sprocket.o: sprocket.c
+	 $(CC) -c -D_POSIX_C_SOURCE sprocket.c $(CFLAGS) $(additional_flags) $(additional_lib_flags) -o $@ 
 
 clean:
 	-rm *.o

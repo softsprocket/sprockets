@@ -41,15 +41,17 @@ int* start_servers (hash_table* document, int* num_servers);
 int fork_sprocket (hash_table* server);
 
 void usage (char* ex) {
-	fprintf (stderr, "usage:%s [-w -e <email_address>] serc_filename", ex);
+	fprintf (stderr, "usage:%s [-w -p <port> -e <email_address> -s <email server[:port]>] serc_filename\n", ex);
 	exit (EXIT_FAILURE);
 }
 
 int main (int argc, char* argv[]) {
 	int watchdog = 0;
 	char* email_address = NULL;
+	char* port = NULL;
+	char* email_server = NULL;
 	int opt =0;
-	while ((opt = getopt (argc, argv, "hwe:")) != -1) {
+	while ((opt = getopt (argc, argv, "hwe:p:s:")) != -1) {
 		switch (opt) {
 			case 'h':
 				usage (argv[0]);
@@ -59,6 +61,11 @@ int main (int argc, char* argv[]) {
 			case 'e':
 				email_address = optarg;
 				break;
+			case 'p':
+				port = optarg;
+				break;
+			case 's':
+				email_server = optarg;
 			default:
 				fprintf (stderr, "Unknown option '%d'\n", opt);
 				break;
@@ -97,7 +104,10 @@ int main (int argc, char* argv[]) {
 	}
 
 	if (watchdog) {
-		run_watchdog (pids, num_servers, email_address);
+		int wfd = run_watchdog (pids, num_servers, port, email_address, email_server);
+		if (wfd > 0) {
+			fprintf (stderr, "Watchdog pid: %d\n", wfd); 
+		}
 	}
 
 	free (pids);

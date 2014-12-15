@@ -34,15 +34,17 @@
 
 int exec (hash_table* config);
 
-int sprocket_bus_server (char* port, char* host);
+int sprocket_tcp_server (char* port, char* host);
 
-int sprocket_bus_client (char* port, char* host);
+int sprocket_tcp_client (char* port, char* host);
 
 int init_epoll (int fd);
 
 int add_fd_to_epoll (int epfd, int fd);
 
 int setup_sighandlers (int sigs[], int num_sigs);
+
+int send_email (char* host, char* to, char* from, char* msg);
 
 #endif // SPROCKETS_H_
 

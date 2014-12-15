@@ -1,4 +1,3 @@
-
 /**
 *    **Sprockets** - server execution software components
 *    ====================================================
@@ -21,18 +20,25 @@
 *    USA
 */
 
-#include "sprocket.h"
+#include <sys/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <syslog.h>
 
 #include <softsprocket/container.h>
 #include <softsprocket/serc.h>
 
+#include "sprocket.h"
+
 int exec (hash_table* config) {
 	syslog (LOG_NOTICE, "Server1 running\n");
 
+	while (1) {
+		sleep (10);
+	}
 
+	syslog (LOG_NOTICE, "Server1 exiting\n");
 	return EXIT_SUCCESS;
 }
 

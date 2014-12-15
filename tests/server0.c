@@ -33,11 +33,11 @@
 
 int exec (hash_table* config) {
 	syslog (LOG_NOTICE, "Server0 running\n");
-	int sfd = sprocket_bus_server ("10000", NULL);
-	int epfd = init_epoll (sfd);
 
-	close (epfd);
-	close (sfd);
+	while (1) {
+		sleep (10);
+	}
+
 	syslog (LOG_NOTICE, "Server0 exiting\n");
 	return EXIT_SUCCESS;
 }

@@ -36,12 +36,13 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/signalfd.h>
+#include <string.h>
 
 #include "sprocket.h"
 
 #define LN() syslog (LOG_NOTICE, "%s %d\n", __FILE__, __LINE__);
 
-int sprocket_bus_server (char* port, char* host) {
+int sprocket_tcp_server (char* port, char* host) {
 	struct addrinfo hints;
 	memset (&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
@@ -117,7 +118,7 @@ int sprocket_bus_server (char* port, char* host) {
 	return fd;
 }
 
-int sprocket_bus_client (char* port, char* host) {
+int sprocket_tcp_client (char* port, char* host) {
 	struct addrinfo hints;
 	memset (&hints, 0, sizeof hints);
 	hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
@@ -208,5 +209,189 @@ int setup_sighandlers (int sigs[], int num_sigs) {
 	}
 
 	return sfd;
+}
+
+int smtp_get_reply (int sfd) {
+	int more = 1;
+	char line[512];
+	char* pline = line;
+	int count = 0;
+	do {
+		int rv = read (sfd, pline, 1);
+		if (rv == 1) {
+			count++;
+		
+			if (count == 511 || *pline == '\n') {
+				more = 0;
+				*(pline + 1) = '\0';	
+			}
+
+			++pline;
+		} else if (rv == 0) {
+			syslog (LOG_CRIT, "SMTP EOF");
+			more = 0;
+			*pline = '\0';
+		} else if (rv == -1) {
+			if (errno == EINTR) {
+				continue;
+			}
+			syslog (LOG_CRIT, "SMTP read: %s", strerror (errno));
+			return 0;
+		}
+	} while (more);
+
+	syslog (LOG_NOTICE, "SMTP reply: %s", line);
+
+	return atoi (line);
+}
+
+int smtp_send (int sfd, char* line) {
+	syslog (LOG_NOTICE, "Sending %s", line);
+	int nr = strlen (line);
+	char* pline = line;
+	do {
+		int rv = write (sfd, pline, nr);
+		if (rv == 0) {
+			syslog (LOG_CRIT, "SMTP unknown write error: %s", line);
+			return 0;
+		} else if (rv == -1) {
+			if (errno == EINTR) {
+				syslog (LOG_NOTICE, "SMTP write interrupted");
+				continue;
+			}
+			
+			syslog (LOG_CRIT, "SMTP write error: %s", strerror (errno));
+			return 0;
+		}
+
+		nr -= rv;
+		pline += rv;
+
+	} while (nr);
+
+	return 1;
+}
+
+int send_email (char* host, char* to, char* from, char* msg) {
+	int port_set = 0;
+	char port[12];
+	for (int i = 0; i < strlen (host); ++i) {
+		if (host [i] == ':') {
+			port_set = i + 1;
+			strncpy (port, host + port_set, 12);
+			host[i] = '\0';	
+		}
+	}
+
+	if (!port_set) {
+		strcpy (port, "25");
+	}
+
+	int sfd = sprocket_tcp_client (port, host);
+
+	if (!sfd) {
+		return 0;
+	}
+
+
+	int res = smtp_get_reply (sfd);
+	if (res != 220) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+
+	char from_host[256];
+	int host_found = 0;
+	for (int i = 0; i < strlen (from); ++i) {
+		if (from[i] == '@') {
+			strncpy (from_host, from + (i + 1), 256);
+			host_found = 1;
+			break;
+		}
+	}
+
+	if (!host_found) {
+		syslog (LOG_CRIT, "SMTP from email format issue: %s", from);
+		close (sfd);
+		return 0;	
+	}
+
+	char line[512];
+	snprintf (line, 512, "HELO %s\r\n", from_host);
+
+	if (!smtp_send (sfd, line)) {
+		close (sfd);
+		return 0;
+	}
+
+	res = smtp_get_reply (sfd);
+	if (res != 250) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+	
+	snprintf (line, 512, "MAIL FROM:<%s>\r\n", from);
+	if (!smtp_send (sfd, line)) {
+		close (sfd);
+		return 0;
+	}
+		
+	res = smtp_get_reply (sfd);
+	if (res != 250) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+
+	snprintf (line, 512, "RCPT TO:<%s>\r\n", to);
+	if (!smtp_send (sfd, line)) {
+		close (sfd);
+		return 0;
+	}
+		
+	res = smtp_get_reply (sfd);
+	if (res != 250 && res != 251) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+
+	strcpy (line, "DATA\r\n");
+	if (!smtp_send (sfd, line)) {
+		close (sfd);
+		return 0;
+	}
+		
+	res = smtp_get_reply (sfd);
+	if (res != 354) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+
+	if (!smtp_send (sfd, msg)) {
+		close (sfd);
+		return 0;
+	}
+		
+	res = smtp_get_reply (sfd);
+	if (res != 250) {
+		syslog (LOG_CRIT, "SMTP reply: %d", res);
+		close (sfd);
+		return res;
+	}
+
+	strcpy (line, "QUIT\r\n");
+	if (!smtp_send (sfd, line)) {
+		close (sfd);
+		return 0;
+	}
+		
+	res = smtp_get_reply (sfd);
+	close (sfd);
+
+	return res;
 }
 
