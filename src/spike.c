@@ -123,21 +123,6 @@ void close_file (void* f) {
 int run_watchdog (int pids[], int num_pids, char* port, char* email_address, char* mail_server) {
 	signal (SIGPIPE, SIG_IGN);
 
-	char ea_host[256];
-
-	if (email_address != NULL && mail_server !=NULL) {
-		
-		for (int i = 0; i < strlen (email_address); ++i) {
-			if (email_address[i] == '@') {
-				char* phost = email_address + (i + 1); 
-				strncpy (ea_host, phost, 256);
-			       	break;	
-			}
-		}
-
-
-	}
-
 	pid_t pid = fork();
 	if (pid < 0) {
 		PERR ("fork");
@@ -339,11 +324,9 @@ int run_watchdog (int pids[], int num_pids, char* port, char* email_address, cha
 					if (p == NULL) {
 						syslog (LOG_CRIT, "Process with pid %s has halted", pid);
 						if (email_address != NULL && mail_server != NULL) {
-							char from[512];
-							snprintf (from, 512, "no_reply@%s", ea_host);
 							char msg[2048];
-							snprintf (msg, 2048, email_alert_msg_format, from, email_address, pid);
-							send_email (mail_server, email_address, from, msg);
+							snprintf (msg, 2048, email_alert_msg_format, email_address, email_address, pid);
+							send_email (mail_server, email_address, email_address, msg);
 									
 							pids[i] = 0; 
 						}
