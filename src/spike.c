@@ -352,38 +352,8 @@ int run_watchdog (int pids[], int num_pids, char* port, char* email_address, cha
 				for (int i = 0; i < stat_files->count; ++i) {
 					FILE* f = auto_array_get (stat_files, i);
 					
-					watchdog_procstat* ps = get_proc_stat (f);
-					if (ps == NULL) {
-						syslog (LOG_CRIT, "Process with pid %d has halted", pid);
-						continue;
-					}
+					char* tmp = get_proc_string (f);
 					
-
-					size_t sz = 1024;
-					char* tmp = NULL;
-
-					while (1) {
-						tmp = malloc (sz);
-						if (tmp == NULL) {
-							syslog (LOG_CRIT, "Malloc: %s", strerror (errno));
-							exit (EXIT_FAILURE);
-						}
-
-						int rv = get_proc_str (ps, &tmp, sz);
-						if (rv >= sz) {
-							free (tmp);
-							tmp = NULL;
-							sz *= 2;
-						} if (rv < 0) {
-							syslog (LOG_CRIT, "get_proc_str: %s", strerror (errno));
-							free (tmp);
-							tmp = NULL;
-							break;
-						} else {
-							break;
-						}
-					}
-					free (ps);
 					if (tmp != NULL) {
 						auto_string_append (stat_buffer, tmp);
 						free (tmp);	
@@ -442,48 +412,37 @@ FILE* get_stat_filep (char* pid) {
 }
 
 
-watchdog_procstat* get_proc_stat (FILE* fp) {
-	watchdog_procstat* ps = malloc (sizeof ps);
-       	if (ps == NULL) {
+char* get_proc_string (FILE* fp) {
+	int buffer_size = 512;
+	char* proc_contents = malloc (buffer_size);
+	if (proc_contents == NULL) {
 		syslog (LOG_CRIT, "malloc: %s\n", strerror (errno));
 		exit (EXIT_FAILURE);
 	}
 
 	rewind (fp);
 
-	if (fscanf (fp, "%d %s %c %d %d %d %d %d %u %lu %lu %lu %lu %lu %lu %ld %ld %ld "
-				"%ld %ld %ld %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %lu "
-				"%lu %lu %lu %lu %lu %d %d %u %u %llu %lu %ld %lu %lu %lu %lu %lu %lu %lu %d", 
-				&ps->pid, ps->pcomm, &ps->state, &ps->ppid, &ps->pgrp, &ps->session, &ps->tty_nr, 
-				&ps->tpgid, &ps->flags, &ps->minflt, &ps->cminflt, &ps->majflt, &ps->cmajflt, &ps->utime, &ps->stime,
-				&ps->cutime, &ps->cstime, &ps->priority, &ps->nice, &ps->num_threads, &ps->itrealvalue, &ps->starttime, 
-				&ps->vsize, &ps->rss, &ps->rsslim, &ps->startcode, &ps->endcode, &ps->startstack, 
-				&ps->kstkesp, &ps->kstkeip, &ps->signal, &ps->blocked, &ps->sigignore, &ps->sigcatch, &ps->wchan, 
-				&ps->nswap, &ps->cnswap, &ps->exit_signal, &ps->processor, &ps->rt_priority,
-				&ps->policy, &ps->delayacct_blkio_ticks, &ps->guest_time, &ps->cguest_time, &ps->start_data, 
-				&ps->end_data, &ps->start_brk, &ps->arg_start, &ps->arg_end, &ps->env_start, &ps->env_end, &ps->exit_code) < 0) {
-	
-		syslog (LOG_CRIT, "fscanf on pid status error: %s", strerror (errno));
-		return NULL;
+	size_t num_read = 0;
+	char next;
+
+	while ((fread (&next, 1, 1, fp)) == 1) {
+		num_read++;
+
+		if (num_read == buffer_size) {
+			buffer_size *= 2;
+			char* tmp = realloc (proc_contents, buffer_size);
+		       	if (tmp == NULL) {
+				syslog (LOG_CRIT, "realloc: %s\n", strerror (errno));
+				exit (EXIT_FAILURE);
+			}	
+
+			proc_contents = tmp; 
+		}
+
+		proc_contents[num_read] = next;
 
 	}
 
-
-	return ps;
-}
-/*
- * pid, command, state, minor faults, child minor faults, major faults, child major faults, user time, kernel time
- * child user time, child kernel time. priority, nice, number of threads, vmem size, resident set size, rss limit,
- * bottom stack, stack pointer, instruction pointer, processor, rt priority, data start address, data end address,
- * program start address, program end address
- *
- */
-int get_proc_str (watchdog_procstat* ps, char** return_str, size_t max_sz) {
-	return snprintf (*return_str, max_sz, "%d %s %c %lu %lu %lu %lu %lu %lu %ld %ld %ld %ld %ld %ld %lu %lu %lu %lu "
-			"%lu %d %u %lu %lu %lu %lu %d\n", 
-			ps->pid, ps->pcomm, ps->state, ps->minflt, ps->cminflt, ps->majflt, ps->cmajflt, ps->utime, ps->stime,
-			ps->cutime, ps->cstime, ps->priority, ps->nice, ps->num_threads, ps->vsize, ps->rss, ps->rsslim, 
-			ps->startstack, ps->kstkesp, ps->kstkeip, ps->processor, ps->rt_priority, ps->start_data,
-		        ps->end_data, ps->env_start, ps->env_end, ps->exit_code);	
+	return proc_contents;
 }
 
