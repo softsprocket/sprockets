@@ -66,6 +66,7 @@ int main (int argc, char* argv[]) {
 				break;
 			case 's':
 				email_server = optarg;
+				break;
 			default:
 				fprintf (stderr, "Unknown option '%d'\n", opt);
 				break;
