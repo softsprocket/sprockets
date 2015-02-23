@@ -36,9 +36,12 @@ clean:
 install:
 	install -d  $(DESTDIR)$(prefix)/bin
 	install -d  $(DESTDIR)$(prefix)/include/softsprocket
+	install -d  $(DESTDIR)$(prefix)/lib/softsprocket
+	install -m 0644 ../lib/lib$(package).$(version).so  $(DESTDIR)$(prefix)/lib/softsprocket
 	install -m 0755 ../bin/$(package)  $(DESTDIR)$(prefix)/bin
 	install -m 0644 ../include/sprocket.h $(DESTDIR)$(prefix)/include/softsprocket
-	
+	-ln -s $(DESTDIR)$(prefix)/lib/softsprocket/lib$(package).$(version).so $(DESTDIR)$(prefix)/lib/lib$(package).so
+
 uninstall:
 	-rm  $(DESTDIR)$(prefix)/bin/$(package)
 	-rm -d  $(DESTDIR)$(prefix)/bin
